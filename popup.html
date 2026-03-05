@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 230px; padding: 15px; font-family: sans-serif; }
+    button { 
+      width: 100%; 
+      margin-bottom: 8px; 
+      cursor: pointer; 
+      padding: 10px; 
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-weight: bold;
+      color: white;
+    }
+    #btnIniciar { background-color: #25D366; } /* Verde WhatsApp */
+    #btnPausar { background-color: #FF9800; } /* Laranja */
+    #btnDesativar { background-color: #f44336; } /* Vermelho */
+    #btnBaixar { background-color: #107c41; } /* Verde Escuro Excel */
+    #contador { font-weight: bold; color: #333; text-align: center; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h3>Aspirador 🧹</h3>
+  <div id="contador">Status: Aguardando...</div>
+  <button id="btnIniciar">1. Ligar Aspirador</button>
+  <button id="btnPausar">2. Pausar (Mantém a lista)</button>
+  <button id="btnDesativar">3. Desativar (Limpa tudo)</button>
+  <button id="btnBaixar">4. Baixar Planilha</button>
+  <script src="popup.js"></script>
+</body>
+</html>
