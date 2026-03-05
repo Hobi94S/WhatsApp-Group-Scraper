@@ -1,33 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8">
   <style>
-    body { width: 230px; padding: 15px; font-family: sans-serif; }
-    button { 
-      width: 100%; 
-      margin-bottom: 8px; 
-      cursor: pointer; 
-      padding: 10px; 
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      font-weight: bold;
-      color: white;
+    :root {
+      --bg-color: #FDF9F0;
+      --card-bg: #FFFFFF;
+      --green-light: #E8F5E9;
+      --green-text: #2E7D32;
+      --orange-light: #FFF3E0;
+      --orange-text: #BF360C;
+      --gray-light: #EEEEEE;
+      --gray-text: #757575;
     }
-    #btnIniciar { background-color: #25D366; } /* Verde WhatsApp */
-    #btnPausar { background-color: #FF9800; } /* Laranja */
-    #btnDesativar { background-color: #f44336; } /* Vermelho */
-    #btnBaixar { background-color: #107c41; } /* Verde Escuro Excel */
-    #contador { font-weight: bold; color: #333; text-align: center; margin: 10px 0; }
+
+    body { 
+      width: 320px; 
+      background-color: var(--bg-color); 
+      margin: 0; 
+      padding: 15px; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Cabeçalho */
+    .header { display: flex; align-items: center; margin-bottom: 20px; }
+    .header h2 { font-size: 18px; margin: 0; color: #333; line-height: 1.2; }
+
+    /* Barra de Progresso */
+    .progress-container { margin-bottom: 20px; }
+    .progress-text { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+    .progress-bar { width: 100%; height: 8px; background: #E0E0E0; border-radius: 4px; overflow: hidden; }
+    #bar-fill { width: 0%; height: 100%; background: #4CAF50; transition: width 0.3s; }
+
+    /* Grid de Botões */
+    .button-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .btn-card {
+      border: none;
+      border-radius: 12px;
+      padding: 15px 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: transform 0.1s;
+    }
+    .btn-card:active { transform: scale(0.95); }
+    .btn-card span { font-size: 10px; font-weight: bold; text-transform: uppercase; margin-top: 8px; text-align: center; }
+    .btn-card i { font-size: 24px; font-style: normal; }
+
+    #btnIniciar { background: var(--green-light); color: var(--green-text); }
+    #btnPausar { background: var(--orange-light); color: var(--orange-text); }
+    #btnDesativar { background: var(--gray-light); color: var(--gray-text); }
+
+    /* Painel de Resultados */
+    .result-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-bottom: 10px;
+    }
+    .result-card h3 { margin: 0; font-size: 14px; color: #666; }
+    .result-card .number { font-size: 48px; font-weight: bold; margin: 10px 0; color: #000; }
+    .result-card .stats { font-size: 12px; color: #444; }
+
+    /* Botão Relatório */
+    #btnBaixar {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid #E0E0E0;
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      text-align: left;
+    }
+    #btnBaixar .icon-excel { font-size: 24px; margin-right: 15px; color: #107c41; }
+    #btnBaixar .text-container b { display: block; font-size: 14px; }
+    #btnBaixar .text-container span { font-size: 12px; color: #888; }
+
   </style>
 </head>
 <body>
-  <h3>Aspirador 🧹</h3>
-  <div id="contador">Status: Aguardando...</div>
-  <button id="btnIniciar">1. Ligar Aspirador</button>
-  <button id="btnPausar">2. Pausar (Mantém a lista)</button>
-  <button id="btnDesativar">3. Desativar (Limpa tudo)</button>
-  <button id="btnBaixar">4. Baixar Planilha</button>
+
+  <div class="header">
+    <span style="font-size: 30px; margin-right: 10px;">🧹</span>
+    <div>
+      <h2>Aspirador de Grupos</h2>
+      <small style="color: #888;">Varredura de WhatsApp</small>
+    </div>
+  </div>
+
+  <div class="progress-container">
+    <div class="progress-text">
+      <span id="status-text">Aguardando...</span>
+      <span id="progress-percent">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div id="bar-fill"></div>
+    </div>
+  </div>
+
+  <div class="button-grid">
+    <button class="btn-card" id="btnIniciar">
+      <i>▶️</i>
+      <span>INICIAR<br>SWEEP</span>
+    </button>
+    <button class="btn-card" id="btnPausar">
+      <i>⏸️</i>
+      <span>PARAR<br>SWEEP</span>
+    </button>
+    <button class="btn-card" id="btnDesativar">
+      <i>⏹️</i>
+      <span>LIMPAR<br>DADOS</span>
+    </button>
+  </div>
+
+  <div class="result-card">
+    <h3>Grupos Identificados</h3>
+    <div class="number" id="count-display">0</div>
+    <div class="stats">
+      Tempo da varredura: <b id="timer-display">00:00</b>
+    </div>
+  </div>
+
+  <button id="btnBaixar">
+    <span class="icon-excel">📊</span>
+    <div class="text-container">
+      <b>Gerar Relatório Completo</b>
+      <span>Baixar arquivo CSV</span>
+    </div>
+  </button>
+
   <script src="popup.js"></script>
 </body>
 </html>

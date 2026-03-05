@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Aspirador de Grupos",
-  "version": "1.0",
+  "version": "1.2",
   "description": "Captura nomes de grupos em comum no WhatsApp Web",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://web.whatsapp.com/*"],
   "action": {
     "default_popup": "popup.html"
   }

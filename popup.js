@@ -1,132 +1,186 @@
+// ==========================================
+// 1. SINCRONIZAÇÃO COM O WHATSAPP
+// ==========================================
+let intervaloInterface;
+
+async function sincronizarInterface() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.url.includes("web.whatsapp.com")) return;
+
+        const resultados = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+                return {
+                    ativo: !!window.capturador,
+                    grupos: window.meusGrupos ? window.meusGrupos.size : 0,
+                    tempo: window.aspiradorTempoSegundos || 0,
+                    progresso: window.aspiradorProgresso || 0
+                };
+            }
+        });
+
+        if (resultados && resultados[0] && resultados[0].result) {
+            const dados = resultados[0].result;
+
+            // Atualiza Tempo
+            const min = Math.floor(dados.tempo / 60).toString().padStart(2, '0');
+            const seg = (dados.tempo % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${min}:${seg}`;
+
+            // Atualiza Contador de Grupos
+            document.getElementById('count-display').innerText = dados.grupos;
+
+            // Atualiza Textos de Status e Barra Dinâmica
+            if (dados.ativo) {
+                document.getElementById('status-text').innerText = "Varredura em progresso...";
+                document.getElementById('bar-fill').style.width = dados.progresso + "%";
+                document.getElementById('progress-percent').innerText = dados.progresso + "%";
+            } else if (dados.grupos > 0 || dados.progresso > 0) {
+                document.getElementById('status-text').innerText = "Pausado";
+                document.getElementById('bar-fill').style.width = dados.progresso + "%";
+                document.getElementById('progress-percent').innerText = dados.progresso + "%";
+            } else {
+                document.getElementById('status-text').innerText = "Aguardando...";
+                document.getElementById('bar-fill').style.width = "0%";
+                document.getElementById('progress-percent').innerText = "0%";
+            }
+        }
+    } catch (erro) {
+        console.log("Aguardando WhatsApp...", erro);
+    }
+}
+
+// Inicia a sincronização e mantém atualizando a cada 1 segundo
+sincronizarInterface();
+intervaloInterface = setInterval(sincronizarInterface, 1000);
+
+
+// ==========================================
+// 2. EVENTOS DOS BOTÕES
+// ==========================================
+
 document.getElementById('btnIniciar').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({ target: { tabId: tab.id }, function: ligarAspirador });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab.url.includes("web.whatsapp.com")) {
+        alert("Abra o WhatsApp Web para usar o aspirador!");
+        return;
+    }
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: ligarAspiradorNoWhatsapp });
+    sincronizarInterface();
 });
 
 document.getElementById('btnPausar').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({ target: { tabId: tab.id }, function: pausarAspirador });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab.url.includes("web.whatsapp.com")) {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pausarAspiradorNoWhatsapp });
+        sincronizarInterface();
+    }
 });
 
 document.getElementById('btnDesativar').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({ target: { tabId: tab.id }, function: desativarAspirador });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab.url.includes("web.whatsapp.com")) {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: limparAspiradorNoWhatsapp });
+        sincronizarInterface();
+    }
 });
 
 document.getElementById('btnBaixar').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({ target: { tabId: tab.id }, function: baixarPlanilha });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab.url.includes("web.whatsapp.com")) return;
+
+    // Pega os grupos capturados
+    const resultados = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+            if (!window.meusGrupos || window.meusGrupos.size === 0) return null;
+            return Array.from(window.meusGrupos).sort();
+        }
+    });
+
+    const grupos = resultados && resultados[0] ? resultados[0].result : null;
+
+    if (!grupos) {
+        alert("Nenhum grupo capturado ainda. Clique em Iniciar e role a tela do WhatsApp!");
+        return;
+    }
+
+    // Baixa o CSV
+    let conteudoCSV = "\uFEFFNome do Grupo\n" + grupos.join('\n');
+    let blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+    let url = URL.createObjectURL(blob);
+    
+    let link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Meus_Grupos_WhatsApp.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 });
 
-// --- FUNÇÕES INJETADAS NO WHATSAPP ---
 
-function ligarAspirador() {
-  window.meusGrupos = window.meusGrupos || new Set();
-  
-  if (window.capturador) clearInterval(window.capturador);
-  
-  let painel = document.getElementById('painel-aspirador');
-  if (!painel) {
-    painel = document.createElement('div');
-    painel.id = 'painel-aspirador';
-    painel.style.position = 'fixed';
-    painel.style.top = '20px';
-    painel.style.left = '50%';
-    painel.style.transform = 'translateX(-50%)';
-    painel.style.padding = '10px 20px';
-    painel.style.borderRadius = '20px';
-    painel.style.fontFamily = 'sans-serif';
-    painel.style.fontWeight = 'bold';
-    painel.style.zIndex = '99999';
-    painel.style.boxShadow = '0px 4px 6px rgba(0,0,0,0.3)';
-    painel.style.color = 'white';
-    document.body.appendChild(painel);
-  }
-  painel.style.backgroundColor = '#25D366'; // Verde
-  painel.innerText = `Aspirando... ${window.meusGrupos.size} grupos`;
+// ==========================================
+// 3. FUNÇÕES INJETADAS (RODAM NO WHATSAPP)
+// ==========================================
 
-  window.capturador = setInterval(() => {
-    try {
-      document.querySelectorAll('div[role="listitem"]').forEach(item => {
-        let nome = item.innerText.split('\n')[0];
-        if (nome && nome.trim() !== "") {
-          window.meusGrupos.add(nome.trim());
+function ligarAspiradorNoWhatsapp() {
+    window.meusGrupos = window.meusGrupos || new Set();
+    window.aspiradorTempoSegundos = window.aspiradorTempoSegundos || 0;
+    window.aspiradorProgresso = window.aspiradorProgresso || 0;
+    
+    if (window.capturador) clearInterval(window.capturador);
+
+    window.capturador = setInterval(() => {
+        window.aspiradorTempoSegundos++;
+        
+        // 1. Lógica de captura de grupos
+        const itens = document.querySelectorAll('div[role="listitem"]');
+        itens.forEach(item => {
+            const texto = item.innerText.split('\n')[0];
+            if (texto && texto.trim().length > 1) {
+                window.meusGrupos.add(texto.trim());
+            }
+        });
+
+        // 2. Lógica para calcular a porcentagem baseada no Scroll do WhatsApp
+        const painelScroll = document.getElementById('pane-side'); // ID padrão da lista de contatos do WA
+        if (painelScroll) {
+            const alturaTotal = painelScroll.scrollHeight;
+            const alturaVisivel = painelScroll.clientHeight;
+            const rolagemAtual = painelScroll.scrollTop;
+            
+            if (alturaTotal > alturaVisivel) {
+                let porcentagem = Math.floor((rolagemAtual / (alturaTotal - alturaVisivel)) * 100);
+                
+                // Trava de limites
+                if (porcentagem < 0) porcentagem = 0;
+                if (porcentagem > 100) porcentagem = 100;
+                
+                // Garante que o progresso só aumente (se o usuário rolar pra cima, não perde o % visual)
+                if (porcentagem > window.aspiradorProgresso) {
+                    window.aspiradorProgresso = porcentagem;
+                }
+            } else {
+                window.aspiradorProgresso = 100;
+            }
         }
-      });
-      
-      let painelAtualizado = document.getElementById('painel-aspirador');
-      if (painelAtualizado) {
-        painelAtualizado.innerText = `Aspirando... ${window.meusGrupos.size} grupos`;
-      }
-    } catch (erro) {
-      console.log("Ignorando erro de leitura:", erro);
+    }, 1000);
+}
+
+function pausarAspiradorNoWhatsapp() {
+    if (window.capturador) {
+        clearInterval(window.capturador);
+        window.capturador = null;
     }
-  }, 1000);
 }
 
-function pausarAspirador() {
-  // 1. Para o motor, mas NÃO apaga a memória
-  if (window.capturador) {
-    clearInterval(window.capturador);
-    window.capturador = null;
-  }
-  
-  // 2. Muda a cor do aviso para Laranja
-  let painel = document.getElementById('painel-aspirador');
-  if (painel) {
-    painel.style.backgroundColor = '#FF9800'; 
-    painel.innerText = `Pausado. ${window.meusGrupos ? window.meusGrupos.size : 0} grupos salvos.`;
-  }
-}
-
-function desativarAspirador() {
-  // 1. Para o motor
-  if (window.capturador) {
-    clearInterval(window.capturador);
-    window.capturador = null;
-  }
-  
-  // 2. Remove o painel da tela completamente
-  let painel = document.getElementById('painel-aspirador');
-  if (painel) {
-    painel.remove();
-  }
-  
-  // 3. Limpa a memória (zera a lista de grupos)
-  if (window.meusGrupos) {
-    window.meusGrupos.clear();
-  }
-}
-
-function baixarPlanilha() {
-  if (!window.meusGrupos || window.meusGrupos.size === 0) {
-    alert("Nenhum grupo capturado ainda. Ligue o aspirador e role a tela.");
-    return;
-  }
-  
-  if (window.capturador) {
-    clearInterval(window.capturador);
-    window.capturador = null;
-  }
-  
-  let painel = document.getElementById('painel-aspirador');
-  if (painel) painel.remove();
-  
-  let listaGrupos = Array.from(window.meusGrupos).sort();
-  let conteudoCSV = "\uFEFFNome do Grupo\n" + listaGrupos.join('\n');
-  
-  let blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
-  let link = document.createElement("a");
-  let url = URL.createObjectURL(blob);
-  
-  link.setAttribute("href", url);
-  link.setAttribute("download", "Meus_Grupos_WhatsApp.csv");
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  // Limpa a memória após baixar
-  window.meusGrupos.clear(); 
+function limparAspiradorNoWhatsapp() {
+    if (window.capturador) {
+        clearInterval(window.capturador);
+        window.capturador = null;
+    }
+    if (window.meusGrupos) window.meusGrupos.clear();
+    window.aspiradorTempoSegundos = 0;
+    window.aspiradorProgresso = 0;
 }
